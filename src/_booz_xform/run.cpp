@@ -1,5 +1,6 @@
 #include <iostream>
 #include "booz_xform.hpp"
+#include "parallel.hpp"
 
 using namespace booz_xform;
 
@@ -18,9 +19,6 @@ void Booz_xform::run() {
     std::cout << "------------------------------------------------------------------------------------" << std::endl;
   }
 
-  // In the next line would could try to add something like "schedule(static, 1)" for more order.
-#pragma omp parallel for
-  for (int j = 0; j < compute_surfs.size(); j++) {
-    surface_solve(j);
-  }
+  // Surfaces are independent, so they are solved concurrently.
+  parallel_for(compute_surfs.size(), [this](int j) { surface_solve(j); });
 }

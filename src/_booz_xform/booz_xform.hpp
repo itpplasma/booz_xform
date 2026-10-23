@@ -16,9 +16,9 @@ namespace booz_xform {
 
   int driver(int, char**);
 
-  /** Return the number of OpenMP threads available to the compiled C++
-   *  code, i.e. omp_get_max_threads(). If booz_xform was compiled
-   *  without OpenMP, 1 is returned.
+  /** Return the number of threads available to the compiled C++ code:
+   *  OMP_NUM_THREADS if it is a positive integer, else the number of
+   *  hardware threads. The name is historical, no OpenMP runtime is used.
    */
   int omp_max_threads();
 

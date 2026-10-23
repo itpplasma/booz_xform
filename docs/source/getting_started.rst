@@ -21,8 +21,9 @@ installed automatically by ``pip``.
 The python interface uses arrays from the ``numpy`` package, which
 ``pip`` installs automatically.
 
-OpenMP is an optional dependency. If found, OpenMP is used to
-parallelize the calculation over magnetic surfaces.  MPI is not used.
+The calculation is parallelized over magnetic surfaces with C++ threads,
+so no OpenMP runtime is needed.  The number of threads is the number of
+hardware threads, or ``OMP_NUM_THREADS`` if that is set.  MPI is not used.
 
 There are some additional python packages that are optional dependencies.
 The :doc:`plotting` routines require the `matplotlib

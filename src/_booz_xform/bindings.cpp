@@ -396,10 +396,11 @@ input data was provided.)")
     ;
 
   m.def("omp_max_threads", &omp_max_threads, R"(
-Return the number of OpenMP threads available to the compiled C++ code,
-i.e. ``omp_get_max_threads()``. If booz_xform was compiled without
-OpenMP, 1 is returned. This function is useful for checking how many
-threads the C++ side of the code sees.
+Return the number of threads available to the compiled C++ code: the
+value of the environment variable ``OMP_NUM_THREADS`` if it is a positive
+integer, and the number of hardware threads otherwise. The name is
+historical, no OpenMP runtime is used. This function is useful for
+checking how many threads the C++ side of the code sees.
 
 :return: The number of threads, an int >= 1.)");
 

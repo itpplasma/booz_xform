@@ -119,8 +119,7 @@ class CMakeBuild(build_ext):
         ]
 
         # Anything in the CMAKE_ARGS environment variable is passed straight
-        # through, the same convention scikit-build uses.  The wheel builds use
-        # it for -DBOOZ_XFORM_REQUIRE_OPENMP=ON; it is also the way to pass
+        # through, the same convention scikit-build uses.  It is the way to pass
         # -DNETCDF_DIR=... or any other CMake option to a `pip install`.
         cmake_args += shlex.split(os.environ.get("CMAKE_ARGS", ""))
         # Only the python extension module is needed for an install.  The

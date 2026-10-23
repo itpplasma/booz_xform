@@ -2,10 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#ifdef OPENMP
-#include <omp.h>
-#endif
 #include "booz_xform.hpp"
+#include "parallel.hpp"
 #include "init_trig.hpp"
 
 using namespace booz_xform;
@@ -111,10 +109,7 @@ void Booz_xform::check_accuracy(int js, int js_b,
     }
   }
 
-  thread = 0;
-#ifdef OPENMP
-  thread = omp_get_thread_num();
-#endif
+  thread = current_thread();
   
   // Here we copy the error definition used in boozer_coords.f, which is
   // err = ABS(bmodb - bmodv)/MAX(bmodb,bmodv)
@@ -123,8 +118,8 @@ void Booz_xform::check_accuracy(int js, int js_b,
       / std::max(bmod_boozer[j], bmod_vmec[j]);
   }
   // Only 1 thread should print at a time:
-  #pragma omp critical
   {
+  std::lock_guard<std::mutex> lock(output_mutex());
   std::cout << std::setprecision(3) << std::scientific
 	    << std::setw(4) << thread << std::setw(6) << js_b
 	    << std::setw(4) << js
