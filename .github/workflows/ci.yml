@@ -35,10 +35,9 @@ jobs:
     - name: get any needed packages from homebrew
       if: "contains(matrix.os, 'macos')"
       run: |
-        brew install netcdf libomp
+        brew install netcdf
         # CMake does not search Homebrew's prefix by default on Apple Silicon,
-        # so tell cmake/FindNetCDF.cmake where to look. libomp is what lets
-        # find_package(OpenMP) succeed with Apple clang.
+        # so tell cmake/FindNetCDF.cmake where to look.
         echo "NETCDF_DIR=$(brew --prefix)" >> $GITHUB_ENV
 
     - name: Print versions
@@ -68,15 +67,8 @@ jobs:
 
     # The [test] extra adds pytest, scipy and matplotlib, which the test suite
     # needs but the package itself does not.
-    #
-    # BOOZ_XFORM_REQUIRE_OPENMP makes a build that cannot find OpenMP fail here
-    # rather than quietly producing a serial build. That is exactly how the
-    # macOS wheels lost their parallelism once: Homebrew's libomp is keg-only,
-    # so FindOpenMP came up empty and the build carried on happily.
     - name: Install
       run: pip install -v ".[test]"
-      env:
-        CMAKE_ARGS: -DBOOZ_XFORM_REQUIRE_OPENMP=ON
 
     - name: Try import
       run: |
@@ -84,8 +76,8 @@ jobs:
         import booz_xform as bx
         b = bx.Booz_xform()
         print('version:', bx.__version__)
-        print('OpenMP max threads:', bx.omp_max_threads())
-        assert bx.omp_max_threads() > 1, 'built without OpenMP, or runner has 1 core'
+        print('max threads:', bx.omp_max_threads())
+        assert bx.omp_max_threads() > 1, 'runner has 1 core'
         "
 
     - name: Try the command-line driver

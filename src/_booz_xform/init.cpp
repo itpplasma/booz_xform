@@ -1,25 +1,20 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
-#ifdef OPENMP
-#include <omp.h>
-#endif
 #include "booz_xform.hpp"
+#include "parallel.hpp"
 #include "init_trig.hpp"
 
 using namespace booz_xform;
 
-/** Return the number of OpenMP threads available to the compiled C++
- *  code, i.e. omp_get_max_threads(). If booz_xform was compiled without
- *  OpenMP, 1 is returned. This function is useful for checking from
- *  python how many threads the C++ side of the code sees.
+/** Return the number of threads available to the compiled C++ code: the
+ *  value of the environment variable OMP_NUM_THREADS if it is a positive
+ *  integer, and the number of hardware threads otherwise. This function is
+ *  useful for checking from python how many threads the C++ side of the code
+ *  sees. The name is historical, no OpenMP runtime is involved.
  */
 int booz_xform::omp_max_threads() {
-#ifdef OPENMP
-  return omp_get_max_threads();
-#else
-  return 1;
-#endif
+  return max_threads();
 }
 
 /** Initialize variables that are common to all surfaces that share

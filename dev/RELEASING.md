@@ -99,9 +99,9 @@ you approve, the wheels and sdist go to PyPI.
 pip download --no-deps --only-binary :all: booz_xform==0.2.0
 ```
 
-Check that an installed wheel is parallel and self-contained. `omp_max_threads()`
-returns 1 both on a single-core machine and when the wheel was built without
-OpenMP, so on macOS also confirm that `libomp` was vendored:
+Check that an installed wheel is self-contained. `omp_max_threads()` returns
+1 on a single-core machine, and on macOS confirm that no OpenMP runtime was
+vendored (`libomp` must not appear):
 
 ```bash
 python -c "import booz_xform as bx; print(bx.__version__, bx.omp_max_threads())"
@@ -140,7 +140,7 @@ overwrite them — bump to the next patch version and release again.
 - **musllinux (Alpine) wheels.** Would need a separate apk toolchain for netcdf
   and hdf5.
 - **PyPy wheels.** The bindings are built against the CPython C API via pybind11.
-- **Free-threaded (`t`) builds.** Not exercised; the C++ side uses OpenMP and has
+- **Free-threaded (`t`) builds.** Not exercised; the C++ side uses std::thread and has
   no GIL discipline beyond pybind11's defaults.
 
 The sdist covers all of these for anyone with a C++ compiler and NetCDF.
@@ -149,51 +149,28 @@ The sdist covers all of these for anyone with a C++ compiler and NetCDF.
 
 - **Linux** uses the `manylinux_2_28` (AlmaLinux 8) images. NetCDF is not in the
   base repos there, so `before-all` installs `epel-release` and then
-  `netcdf-devel` via `dnf`. `auditwheel` vendors `libnetcdf`, `libhdf5`,
-  `libgomp` and their dependencies into the wheel. arm64 builds run on native
+  `netcdf-devel` via `dnf`. `auditwheel` vendors `libnetcdf`, `libhdf5`
+  and their dependencies into the wheel. arm64 builds run on native
   `ubuntu-24.04-arm` runners — no QEMU emulation.
-- **macOS** uses Homebrew's `netcdf` and `libomp`, and `delocate` vendors
-  `libnetcdf`, `libhdf5` and `libomp` into the wheel. `libomp` is what makes
-  `find_package(OpenMP)` succeed with Apple clang, so the macOS wheels are
-  OpenMP-parallel; without it they would be single-threaded. CMake does not
-  search Homebrew's prefix by default on Apple Silicon, so `NETCDF_DIR` is set
-  from `brew --prefix` in `[tool.cibuildwheel.macos] environment`.
+- **macOS** uses Homebrew's `netcdf`, and `delocate` vendors `libnetcdf` and
+  `libhdf5` into the wheel. CMake does not search Homebrew's prefix by default
+  on Apple Silicon, so `NETCDF_DIR` is set from `brew --prefix` in
+  `[tool.cibuildwheel.macos] environment`.
 
-  **The libomp trap.** The `libomp` formula is *keg-only*: `brew install libomp`
-  does not symlink it into `/opt/homebrew`. CMake's `FindOpenMP` looks for
-  `libomp.dylib` and `omp.h` on the default search paths, finds neither, and —
-  because OpenMP is optional — configures a perfectly working *serial* build.
-  The only trace is one easily-missed `Could NOT find OpenMP` line in a
-  thousand-line log. This is what happened to the 0.1.0rc2 macOS wheels.
-  `CMakeLists.txt` now runs `brew --prefix libomp` and sets `OpenMP_ROOT` from
-  it, which makes both the library and the header discoverable (`OpenMP_ROOT` is
-  honored by every `find_` call inside `FindOpenMP`, policy CMP0074).
-
-  Note that a developer machine is a *bad* place to test this: if `libomp` was
-  ever `brew link --force`-ed, or another formula left an `omp.h` in
-  `/opt/homebrew/include`, `find_package(OpenMP)` succeeds locally for reasons
-  that do not exist on a clean CI runner. To reproduce the CI environment,
-  configure with the prefix hidden:
-
-  ```bash
-  cmake .. -DCMAKE_IGNORE_PATH="/opt/homebrew/lib;/opt/homebrew/include" \
-      -DNETCDF_INCLUDES=/opt/homebrew/include \
-      -DNETCDF_LIBRARIES=/opt/homebrew/lib/libnetcdf.dylib
-  ```
-
-  As a backstop, the wheel builds and `ci.yml` pass
-  `CMAKE_ARGS=-DBOOZ_XFORM_REQUIRE_OPENMP=ON`, which turns "OpenMP not found"
-  from a silent downgrade into a failed build.
+  **No OpenMP.** The surfaces are processed concurrently with `std::thread`
+  (`src/_booz_xform/parallel.hpp`), so the wheels carry no OpenMP runtime.
+  Earlier versions linked OpenMP, and the macOS wheels vendored their own
+  `libomp`. Two copies of LLVM's `libomp` cannot be initialized in one process
+  (`OMP: Error #15`), so importing such a wheel next to any other package that
+  brings a `libomp`, for instance a source build of booz_xform linked against
+  Homebrew's, aborted on the first transform. `tests/test_openmp_clash.py`
+  guards against reintroducing an OpenMP runtime.
 
   `MACOSX_DEPLOYMENT_TARGET` is set per-runner in `release.yml` (14.0 for arm64
   on `macos-14`, 15.0 for x86_64 on `macos-15-intel`). **It must be at least the
   SDK version the Homebrew bottles were built against**, or delocate will refuse
   the wheel. This is why the wheels do not support older macOS; lowering the
   floor would mean building NetCDF against an older SDK.
-- **OpenMP caveat:** the wheels vendor `libgomp` (Linux) or `libomp` (macOS). If
-  a user's NumPy/SciPy brings a different OpenMP runtime into the same process,
-  oversubscription or (rarely) a crash is possible. This is the standard
-  situation for OpenMP-using wheels.
 - **Build time.** Only the `_booz_xform` CMake target is built during an install
   (see `setup.py`); the standalone `xbooz_xform` executable and the C++
   `unitTests` executable are not, which keeps the matrix from recompiling doctest

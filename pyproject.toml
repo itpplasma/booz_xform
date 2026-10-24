@@ -102,7 +102,7 @@ cmd = "pytest -q"
 [tool.cibuildwheel]
 # PyPy: the bindings are built against the CPython C API via pybind11.
 # musllinux: would need a separate apk toolchain for netcdf/hdf5.
-# Free-threaded (cp3??t) builds: not exercised; the C++ side uses OpenMP and
+# Free-threaded (cp3??t) builds: not exercised; the C++ side uses std::thread and
 # holds no GIL discipline beyond pybind11's default.
 # CPython < 3.10 is excluded automatically by requires-python above.
 skip = ["pp*", "*-musllinux_*", "cp3??t-*"]
@@ -116,20 +116,16 @@ test-command = "cd {project} && python -m pytest tests"
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 before-all = "dnf install -y epel-release && dnf install -y netcdf-devel"
-# auditwheel vendors libnetcdf, libhdf5, libgomp etc. into the wheel.
-environment = { CMAKE_ARGS = "-DBOOZ_XFORM_REQUIRE_OPENMP=ON", MPLBACKEND = "Agg" }
+# auditwheel vendors libnetcdf, libhdf5 etc. into the wheel.
+environment = { MPLBACKEND = "Agg" }
 
 [tool.cibuildwheel.macos]
-# delocate vendors libnetcdf, libhdf5 and libomp into the wheel.  libomp is what
-# lets CMake's FindOpenMP succeed with Apple clang, so macOS wheels are
-# OpenMP-parallel like the Linux ones; without it the wheels would be
-# single-threaded.  Because the libomp formula is keg-only, CMakeLists.txt has
-# to locate it explicitly -- see the OpenMP_ROOT block there, and see
-# dev/RELEASING.md for the duplicate-runtime caveat.
+# delocate vendors libnetcdf and libhdf5 into the wheel.  No OpenMP runtime is
+# involved: a vendored libomp would abort any process that also loads another
+# libomp, see dev/RELEASING.md.
 # MACOSX_DEPLOYMENT_TARGET is set per-runner in release.yml -- it must match the
 # SDK the Homebrew netcdf was built against, or delocate rejects the wheel.
-before-all = "brew install netcdf libomp"
+before-all = "brew install netcdf"
 # CMake does not search Homebrew's prefix by default on Apple Silicon, so point
-# cmake/FindNetCDF.cmake at it explicitly.  BOOZ_XFORM_REQUIRE_OPENMP turns a
-# silently-serial wheel into a failed build.
-environment = { NETCDF_DIR = "$(brew --prefix)", CMAKE_ARGS = "-DBOOZ_XFORM_REQUIRE_OPENMP=ON", MPLBACKEND = "Agg" }
+# cmake/FindNetCDF.cmake at it explicitly.
+environment = { NETCDF_DIR = "$(brew --prefix)", MPLBACKEND = "Agg" }
